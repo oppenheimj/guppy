@@ -3,11 +3,16 @@ import { mat3, mat4, vec4, vec3 } from 'gl-matrix';
 const toRadians = degrees => degrees * Math.PI / 180.0;
 
 export default class Entity {
-  constructor(position, right, up, forward) {
+  constructor(device, position, right, up, forward) {
+    this.device = device;
+    
+
     this.position = position || vec3.fromValues(0, 0, 10);
     this.right = right || vec3.fromValues(1, 0, 0);
     this.up = up || vec3.fromValues(0, 1, 0);
     this.forward = forward || vec3.fromValues(0, 0, -1);
+
+
   }
 
   rotationMatrix() {
@@ -59,13 +64,15 @@ export default class Entity {
       size: modelBufferSize,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
+  }
 
+  buildModelBufferBindGroup(pipeline) {
     this.modelBindGroup = this.device.createBindGroup({
-      layout: this.pipeline.getBindGroupLayout(0),
+      layout: pipeline.getBindGroupLayout(0),
       entries: [
         {
           binding: 0,
-          resource: {buffer: this.uniformBuffer}
+          resource: {buffer: this.modelBuffer}
         }
       ]
     });

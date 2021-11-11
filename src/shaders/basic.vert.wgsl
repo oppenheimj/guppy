@@ -9,19 +9,19 @@
 // This is required to be a vec4<f32>.
 struct VertexOutput {
   [[builtin(position)]] Position : vec4<f32>;
-  [[location(0)]] fragUV : vec2<f32>;
-  [[location(1)]] fragPosition: vec4<f32>;
+  [[location(0)]] color: vec4<f32>;
 };
 
 
 // [[location(x)]] corresponds to shaderLocation inside vertexDescriptor
 [[stage(vertex)]]
 fn main([[location(0)]] position : vec4<f32>,
-        [[location(1)]] uv : vec2<f32>
-) -> VertexOutput {
+        [[location(1)]] color : vec4<f32>,
+        [[location(2)]] normal : vec4<f32>) -> VertexOutput {
+
   var output : VertexOutput;
   output.Position = uniforms.modelViewProjectionMatrix * position;
-  output.fragUV = uv;
-  output.fragPosition = 0.5 * (position + vec4<f32>(1.0, 1.0, 1.0, 1.0));
+  output.color = color;
+
   return output;
 }

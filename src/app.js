@@ -3,15 +3,15 @@ import { mat4 }  from 'gl-matrix';
 import Camera from "./Camera.js";
 import Controls from "./Controls.js";
 import Player from "./Player.js";
-import Thing from "./Thing.js";
+import Terrain from './Terrain.js';
+import VertexFormat from './VertexFormat.js';
 
-
-import Cube from './Cube.js';
+import basicVertWGSL from './shaders/basic.vert.wgsl';
+import vertexPositionColorWGSL from './shaders/vertexPositionColor.frag.wgsl';
 
 class WebGPU {
   constructor() {
     this.player;
-    this.players = [];
   }
 
   async init() {
@@ -19,7 +19,7 @@ class WebGPU {
       alert("WebGPU is not supported/enabled in your browser");
       return;
     }
-  
+
     this.adapter = await navigator.gpu.requestAdapter();
     this.device = await this.adapter.requestDevice();
   
@@ -41,11 +41,8 @@ class WebGPU {
       format: this.presentationFormat,
       size: this.presentationSize,
     });
-  }
 
-  loadDrawables() {
-    this.drawables = {'cube': new Cube(this.device)};
-    Object.entries(this.drawables).forEach(([name, drawable]) => drawable.buildVertexBuffer());
+    this.vertexFormat = new VertexFormat();
   }
 
   initPlayer() {
@@ -53,42 +50,86 @@ class WebGPU {
     this.camera.setWidthHeight(this.canvas.width, this.canvas.height);
     this.projMatrix = this.camera.getProjectionMatrix();
 
-    this.player = new Player();
+    this.player = new Player(this.device);
     this.controls = new Controls(document, this.canvas, this.player);
   }
 
-  initThings() {
-    const thing1 = new Thing();
-    const thing2 = new Thing();
+  async checkShaderError(shader) {
+    // This API is only available in Chrome right now
+    if (shader.compilationInfo) {
+      var compilationInfo = await shader.compilationInfo();
 
-    thing1.setDrawable(this.drawables['cube']);
-    thing2.setDrawable(this.drawables['cube']);
+      if (compilationInfo.messages.length > 0) {
+        var hadError = false;
+        console.log("Shader compilation log:");
 
-    this.things = [thing1, thing2];
+        for (var i = 0; i < compilationInfo.messages.length; ++i) {
+          var msg = compilationInfo.messages[i];
+          console.log(`${msg.lineNum}:${msg.linePos} - ${msg.message}`);
+          hadError = hadError || msg.type == "error";
+        }
 
-    this.things.forEach(thing => thing.buildModelBuffer());
+        if (hadError) {
+          console.log("Shader failed to compile");
+          return;
+        }
+      }
+    }
   }
 
-  buildUniformBindGroup() {
-    const uniformBufferSize = 4 * 16; // 4x4 matrix
-    this.uniformBuffer = this.device.createBuffer({
-      size: uniformBufferSize,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-    });
+  async buildPipeline(vertexShaderCode, fragmentShaderCode) {
+    // needs vertex shader, fragment shader, vertexFormat, and presentationSize
+    // doesn't need to be an instance method
 
-    this.uniformBindGroup = this.device.createBindGroup({
-      layout: this.pipeline.getBindGroupLayout(0),
-      entries: [
-        {
-          binding: 0,
-          resource: {buffer: this.uniformBuffer}
-        }
-      ]
-    });
+    const vertexShader = this.device.createShaderModule({ code: vertexShaderCode });
+    await this.checkShaderError(vertexShader);
+
+    const fragmentShader = this.device.createShaderModule({ code: fragmentShaderCode });
+    await this.checkShaderError(fragmentShader);
+
+    // So this pipeline is specific to a particular vertex format and pair of shaders.
+    // Its saying, lets render vertices represented in this particular way
+    // using these particular shaders
+
+    const pipelineDescriptor = {
+      vertex: {
+        module: vertexShader,
+        entryPoint: 'main',
+        buffers: [
+          {
+            stepMode: 'vertex', // or instance!!!
+            arrayStride: this.vertexFormat.vertexSize,
+            attributes: this.vertexFormat.vertexBuffers
+          }
+        ]
+      },
+      fragment: {
+        module: fragmentShader,
+        entryPoint: 'main',
+        // This format should match the one configured on the canvas
+        targets: [{format: this.presentationFormat}]
+      },
+      primitive: {
+        // Meaning each set of three vertices are one triangle; no vertices
+        // are shared between triangles. If we were doing indexed, then during
+        // the draw phase we'd do setIndexBuffer(buffer, type) and drawIndexed(length)
+        topology: 'triangle-list', // can also be triangle-strip
+        cullMode: 'back',
+      },
+      // Enable depth testing so that the fragment closest to the camera
+      // is rendered in front.
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: 'less',
+        format: 'depth24plus',
+      },
+    }
+
+    this.pipeline = this.device.createRenderPipeline(pipelineDescriptor);
   }
 
   buildRenderPassDescriptor() {
-    var depthTexture = this.device.createTexture({
+    const depthTexture = this.device.createTexture({
       size: this.presentationSize,
       format: 'depth24plus',
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
@@ -105,7 +146,7 @@ class WebGPU {
       depthStencilAttachment: {
         view: depthTexture.createView(),
         depthLoadValue: 1.0,
-        depthStoreOp: 'clear', // 'store'
+        depthStoreOp: 'store', // 'store'
         stencilLoadValue: 0,
         stencilStoreOp: 'store',
       }
@@ -115,20 +156,26 @@ class WebGPU {
   run() {
     var projView = mat4.create();
 
-    const frame = () => {
-      controls.checkKeyPress();
+    const terrain = new Terrain(this.device);
+    terrain.buildVertexBuffer();
 
-      mat4.mul(projView, projMatrix, entity.getViewMatrix());
-      this.device.queue.writeBuffer(this.uniformBuffer, 0, projView.buffer, projView.byteOffset, projView.byteLength);
+    const frame = () => {
+      this.controls.checkKeyPress();
+
+      mat4.mul(projView, this.projMatrix, this.player.getViewMatrix());
+      this.device.queue.writeBuffer(this.player.modelBuffer, 0, projView.buffer, projView.byteOffset, projView.byteLength);
 
       this.renderPassDescriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
+
       const commandEncoder = this.device.createCommandEncoder();
       const passEncoder = commandEncoder.beginRenderPass(this.renderPassDescriptor);
+
       passEncoder.setPipeline(this.pipeline);
-      passEncoder.setBindGroup(0, this.uniformBindGroup);
-      passEncoder.setVertexBuffer(0, this.verticesBuffer);
-      passEncoder.draw(cubeVertexCount, 1, 0, 0);
+      passEncoder.setBindGroup(0, this.player.modelBindGroup);
+      passEncoder.setVertexBuffer(0, terrain.vertexBuffer);
+      passEncoder.draw(this.vertexFormat.vertexCount, 1, 0, 0);
       passEncoder.endPass();
+
       this.device.queue.submit([commandEncoder.finish()]);
 
       requestAnimationFrame(frame);
@@ -141,23 +188,15 @@ class WebGPU {
 (async () => {
   const webgpu = new WebGPU();
   await webgpu.init();
-  webgpu.loadDrawables();
   webgpu.initPlayer();
-  webgpu.initObjects();
 
-  // entity.buildModelBuffer();
-  // entity.updateModelBuffer();
-  // await drawable.configurePipeline(presentationFormat);
+  const vertexShaderCode = basicVertWGSL;
+  const fragmentShaderCode = vertexPositionColorWGSL;
+  await webgpu.buildPipeline(vertexShaderCode, fragmentShaderCode);
 
-  // Load meshes onto gpu
-  // A drawable has a mesh and a view matrix
-  // mesh is associated with a particular render pipeline
-  // Need a mesh, a model matrix, and a pipeline
-  // Something that is drawable knows about its buffers
+  webgpu.player.buildModelBuffer();
+  webgpu.player.buildModelBufferBindGroup(webgpu.pipeline);
 
-  // webgpu.buildVertexBuffer();
-  await webgpu.configurePipeline();
-  webgpu.buildUniformBindGroup();
   webgpu.buildRenderPassDescriptor();
   webgpu.run();
 })();
