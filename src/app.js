@@ -9,6 +9,8 @@ import VertexFormat from './VertexFormat.js';
 import basicVertWGSL from './shaders/basic.vert.wgsl';
 import vertexPositionColorWGSL from './shaders/vertexPositionColor.frag.wgsl';
 
+
+import { getTerrains } from './utilities.js';
 class WebGPU {
   constructor() {
     this.player;
@@ -114,7 +116,7 @@ class WebGPU {
         // are shared between triangles. If we were doing indexed, then during
         // the draw phase we'd do setIndexBuffer(buffer, type) and drawIndexed(length)
         topology: 'triangle-list', // can also be triangle-strip
-        cullMode: 'back',
+        cullMode: 'front',
       },
       // Enable depth testing so that the fragment closest to the camera
       // is rendered in front.
@@ -156,8 +158,10 @@ class WebGPU {
   run() {
     var projView = mat4.create();
 
-    const terrain = new Terrain(this.device);
-    terrain.buildVertexBuffer();
+    const terrains = getTerrains(this.device);
+    terrains.forEach(t => t.buildVertexBuffer());
+    // const terrain = new Terrain(this.device);
+    // terrain.buildVertexBuffer();
 
     const frame = () => {
       this.controls.checkKeyPress();
@@ -172,8 +176,11 @@ class WebGPU {
 
       passEncoder.setPipeline(this.pipeline);
       passEncoder.setBindGroup(0, this.player.modelBindGroup);
-      passEncoder.setVertexBuffer(0, terrain.vertexBuffer);
-      passEncoder.draw(this.vertexFormat.vertexCount, 1, 0, 0);
+
+      terrains.forEach(t => {
+        passEncoder.setVertexBuffer(0, t.vertexBuffer);
+        passEncoder.draw(this.vertexFormat.vertexCount, 1, 0, 0);
+      })
       passEncoder.endPass();
 
       this.device.queue.submit([commandEncoder.finish()]);
