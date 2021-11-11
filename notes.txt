@@ -1,0 +1,15 @@
+Two primary use cases for rendering things:
+- Terrain chunks
+    - pos/col/nor/uv must be represented per-vertex
+    - Less data transfer, more client-side compute: pass height map
+    - More data transfer, less client-side compute: pass all vertices
+    - Should transfer less data. Pass a height map, let client construct buffers
+    - Proceed by making fewest possible changes to server-side code
+- Variable number of instances of meshes
+    - How to do instance rendering with variable number of instances 
+        - does shader need to know how many instances?
+
+Draw calls:
+- One per terrain chunk
+- One for all of each type of model
+
