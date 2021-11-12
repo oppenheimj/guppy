@@ -10,7 +10,7 @@ export default class WebGPU {
     this.geometry = [];
   }
 
-  async init() {
+  async init(camera) {
     if (navigator.gpu === undefined) {
       alert("WebGPU is not supported/enabled in your browser");
       return;
@@ -37,12 +37,10 @@ export default class WebGPU {
       size: this.presentationSize,
     });
 
-    this.vertexFormat = new VertexFormat();
-  }
-
-  setCamera(camera) {
     this.camera = camera;
     this.projMatrix = this.camera.getProjectionMatrix();
+
+    this.vertexFormat = new VertexFormat();
   }
 
   async checkShaderError(shader) {
@@ -167,7 +165,7 @@ export default class WebGPU {
 
       this.geometry.forEach(g => {
         passEncoder.setVertexBuffer(0, g.vertexBuffer);
-        passEncoder.draw(this.vertexFormat.vertexCount, 1, 0, 0);
+        passEncoder.draw(g.vertexCount, 1, 0, 0);
       })
       passEncoder.endPass();
 

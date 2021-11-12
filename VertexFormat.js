@@ -8,8 +8,6 @@ export default class VertexFormat {
     this.colorOffset = 4 * BYTES_PER_FLOAT;
     this.normalOffset = 8 * BYTES_PER_FLOAT;
 
-    this.vertexCount = 24;
-
     this.vertexBuffers = [
       {
         shaderLocation: 0,
