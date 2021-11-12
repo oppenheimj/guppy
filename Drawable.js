@@ -1,8 +1,10 @@
-
+import VertexFormat from './VertexFormat.js';
 
 export default class Drawable {
   constructor(device) {
     this.device = device;
+
+    this.vertexFormat = new VertexFormat();
   }
 
   buildVertexBuffer() {
