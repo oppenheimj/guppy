@@ -1,13 +1,12 @@
 import VertexFormat from './VertexFormat.js';
-import Camera from './Camera.js';
 import Player from './Player.js'
 import Controls from './Controls.js';
 
 import { mat4 } from 'gl-matrix';
 
 export default class WebGPU {
-  constructor() {
-    this.player;
+  constructor(canvas) {
+    this.canvas = canvas;
     this.geometry = [];
   }
 
@@ -19,8 +18,7 @@ export default class WebGPU {
 
     this.adapter = await navigator.gpu.requestAdapter();
     this.device = await this.adapter.requestDevice();
-  
-    this.canvas = document.getElementById("webgpu-canvas");
+
     this.context = this.canvas.getContext("webgpu");
   
     // This returns a string that is "bgra8unorm"
@@ -42,13 +40,9 @@ export default class WebGPU {
     this.vertexFormat = new VertexFormat();
   }
 
-  initPlayer() {
-    this.camera = new Camera(50, 0.01, 1000);
-    this.camera.setWidthHeight(this.canvas.width, this.canvas.height);
+  setCamera(camera) {
+    this.camera = camera;
     this.projMatrix = this.camera.getProjectionMatrix();
-
-    this.player = new Player(this.device);
-    this.controls = new Controls(document, this.canvas, this.player);
   }
 
   async checkShaderError(shader) {

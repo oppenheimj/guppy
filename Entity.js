@@ -5,14 +5,11 @@ const toRadians = degrees => degrees * Math.PI / 180.0;
 export default class Entity {
   constructor(device, position, right, up, forward) {
     this.device = device;
-    
 
     this.position = position || vec3.fromValues(0, 0, 10);
     this.right = right || vec3.fromValues(1, 0, 0);
     this.up = up || vec3.fromValues(0, 1, 0);
     this.forward = forward || vec3.fromValues(0, 0, -1);
-
-
   }
 
   rotationMatrix() {
