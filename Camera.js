@@ -1,16 +1,11 @@
 import { mat4 } from "gl-matrix";
 
 export default class Camera {
-  constructor(fovY, nearClip, farClip) {
+  constructor(fovY, nearClip, farClip, aspect) {
     this.fovY = fovY;
     this.nearClip = nearClip;
     this.farClip = farClip;
-  }
-
-  setWidthHeight(screenWidth, screenHeight) {
-    this.screenWidth = screenWidth;
-    this.screenHeight = screenHeight;
-    this.aspect = this.screenWidth / this.screenHeight;
+    this.aspect = aspect;
   }
 
   getProjectionMatrix() {
