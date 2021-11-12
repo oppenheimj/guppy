@@ -17,23 +17,23 @@ export default class Entity {
     let r = this.right;
     let u = this.up;
 
-    return mat4.transpose(mat4.create(), mat4.fromValues(
-      r[0],  r[1],   r[2],   0,
-      u[0],  u[1],   u[2],   0,
-      f[0],  f[1],   f[2],   0,
+    return mat4.fromValues(
+      r[0],  u[0],   f[0],   0,
+      r[1],  u[1],   f[1],   0,
+      r[2],  u[2],   f[2],   0,
       0,     0,      0,      1
-    ));
+    );
   }
 
   translationMatrix() {
     let p = this.position;
 
-    return mat4.transpose(mat4.create(), mat4.fromValues(
-      1, 0,  0,  -p[0],
-      0, 1,  0,  -p[1],
-      0, 0,  1,  -p[2], 
-      0, 0,  0,  1
-    ));
+    return mat4.fromValues(
+      1,      0,      0,      0,
+      0,      1,      0,      0,
+      0,      0,      1,      0, 
+      -p[0],  -p[1],  -p[2],  1
+    );
   }
 
   getViewMatrix() {
