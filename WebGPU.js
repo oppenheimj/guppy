@@ -1,19 +1,13 @@
-import { mat4 }  from 'gl-matrix';
-
-import Camera from "./Camera.js";
-import Controls from "./Controls.js";
-import Player from "./Player.js";
-import Terrain from './Terrain.js';
 import VertexFormat from './VertexFormat.js';
+import Player from './Player.js'
+import Controls from './Controls.js';
 
-import basicVertWGSL from './shaders/basic.vert.wgsl';
-import vertexPositionColorWGSL from './shaders/vertexPositionColor.frag.wgsl';
+import { mat4 } from 'gl-matrix';
 
-
-import { getTerrains } from './utilities.js';
-class WebGPU {
-  constructor() {
-    this.player;
+export default class WebGPU {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.geometry = [];
   }
 
   async init() {
@@ -24,8 +18,7 @@ class WebGPU {
 
     this.adapter = await navigator.gpu.requestAdapter();
     this.device = await this.adapter.requestDevice();
-  
-    this.canvas = document.getElementById("webgpu-canvas");
+
     this.context = this.canvas.getContext("webgpu");
   
     // This returns a string that is "bgra8unorm"
@@ -47,13 +40,9 @@ class WebGPU {
     this.vertexFormat = new VertexFormat();
   }
 
-  initPlayer() {
-    this.camera = new Camera(50, 0.01, 1000);
-    this.camera.setWidthHeight(this.canvas.width, this.canvas.height);
+  setCamera(camera) {
+    this.camera = camera;
     this.projMatrix = this.camera.getProjectionMatrix();
-
-    this.player = new Player(this.device);
-    this.controls = new Controls(document, this.canvas, this.player);
   }
 
   async checkShaderError(shader) {
@@ -155,13 +144,12 @@ class WebGPU {
     };
   }
 
+  addGeometry(g) {
+    this.geometry.push(g);
+  }
+
   run() {
     var projView = mat4.create();
-
-    const terrains = getTerrains(this.device);
-    terrains.forEach(t => t.buildVertexBuffer());
-    // const terrain = new Terrain(this.device);
-    // terrain.buildVertexBuffer();
 
     const frame = () => {
       this.controls.checkKeyPress();
@@ -177,8 +165,8 @@ class WebGPU {
       passEncoder.setPipeline(this.pipeline);
       passEncoder.setBindGroup(0, this.player.modelBindGroup);
 
-      terrains.forEach(t => {
-        passEncoder.setVertexBuffer(0, t.vertexBuffer);
+      this.geometry.forEach(g => {
+        passEncoder.setVertexBuffer(0, g.vertexBuffer);
         passEncoder.draw(this.vertexFormat.vertexCount, 1, 0, 0);
       })
       passEncoder.endPass();
@@ -191,19 +179,3 @@ class WebGPU {
     requestAnimationFrame(frame);
   }
 }
-
-(async () => {
-  const webgpu = new WebGPU();
-  await webgpu.init();
-  webgpu.initPlayer();
-
-  const vertexShaderCode = basicVertWGSL;
-  const fragmentShaderCode = vertexPositionColorWGSL;
-  await webgpu.buildPipeline(vertexShaderCode, fragmentShaderCode);
-
-  webgpu.player.buildModelBuffer();
-  webgpu.player.buildModelBufferBindGroup(webgpu.pipeline);
-
-  webgpu.buildRenderPassDescriptor();
-  webgpu.run();
-})();
