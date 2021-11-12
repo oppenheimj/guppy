@@ -1,14 +1,14 @@
 export default class Controls {
-  constructor (document, canvas, entity) {
+  constructor (document, canvas, controlMap, mouseMap) {
     this.document = document;
     this.canvas = canvas;
-    this.entity = entity;
 
-    this.initKeyboardControls();
-    this.initMouseControls();
+    this.initKeyboardControls(controlMap);
+    this.initMouseControls(mouseMap);
   }
 
-  initKeyboardControls() {
+  initKeyboardControls(controlMap) {
+    this.controlMap = controlMap;
     this.keyState = new Set();
 
     const handleKeyDown = (e) => this.keyState.add(e.key);
@@ -18,7 +18,7 @@ export default class Controls {
     this.document.addEventListener('keyup', handleKeyUp, false);
   }
 
-  initMouseControls() {
+  initMouseControls(mouseMap) {
     const lockChangeAlert = () => {
       if (this.document.pointerLockElement === this.canvas || this.document.mozPointerLockElement === this.canvas) {
         console.log('The pointer lock status is now locked');
@@ -36,11 +36,12 @@ export default class Controls {
       const SENSITIVITY = 40.0;
 
       if (dX != 0) {
-        this.entity.rotateOnUpGlobal(dX/this.canvas.width * SENSITIVITY);
+        mouseMap.x(dX * SENSITIVITY);
+        
       }
 
       if (dY != 0) {
-        this.entity.rotateOnRightLocal(dY/this.canvas.height * SENSITIVITY);
+        mouseMap.y(dY * SENSITIVITY);
       }
     }
 
@@ -54,30 +55,12 @@ export default class Controls {
   }
 
   checkKeyPress() {
-    const m = 0.1;
+    const MOVE_SPEED = 0.5;
 
-    if (this.keyState.has('w')) {
-      this.entity.moveForwardLocal(m);
-    }
-
-    if (this.keyState.has('s')) {
-      this.entity.moveForwardLocal(-m);
-    }
-
-    if (this.keyState.has('a')) {
-      this.entity.moveRightLocal(-m);
-    }
-
-    if (this.keyState.has('d')) {
-      this.entity.moveRightLocal(m);
-    }
-
-    if (this.keyState.has('e')) {
-      this.entity.moveUpLocal(m);
-    }
-
-    if (this.keyState.has('q')) {
-      this.entity.moveUpLocal(-m);
-    }
+    Object.entries(this.controlMap).forEach(([key, fn]) => {
+      if (this.keyState.has(key)) {
+        fn(MOVE_SPEED)
+      }
+    });
   }
 }
