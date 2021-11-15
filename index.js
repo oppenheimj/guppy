@@ -1,20 +1,18 @@
 'use strict'
 
-import Camera from './Camera.js';
-import Controls from './Controls.js';
-import Drawable from './Drawable.js'
-import Entity from './Entity.js';
-import Player from './Player.js';
-import Thing from './Thing.js';
-import VertexFormat from './VertexFormat.js';
-import WebGPU from './WebGPU.js';
+import Camera from './source/Camera.js';
+import Controls from './source/Controls.js';
+import Drawable from './source/Drawable.js'
+import Entity from './source/Entity.js';
+import Thing from './source/Thing.js';
+import VertexFormat from './source/VertexFormat.js';
+import WebGPU from './source/WebGPU.js';
 
 export {
   Camera,
   Controls,
   Drawable,
   Entity,
-  Player,
   Thing,
   VertexFormat,
   WebGPU

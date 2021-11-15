@@ -55,21 +55,22 @@ export default class Entity {
     );
   }
 
-  buildModelBuffer() {
-    const modelBufferSize = 4 * 16; // 4x4 matrix
-    this.modelBuffer = this.device.createBuffer({
-      size: modelBufferSize,
+  buildModelMatrixBuffer() {
+    const modelMatrixBufferSize = 4 * 16; // 4x4 matrix
+
+    this.modelMatrixBuffer = this.device.createBuffer({
+      size: modelMatrixBufferSize,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
   }
 
-  buildModelBufferBindGroup(pipeline) {
-    this.modelBindGroup = this.device.createBindGroup({
+  buildModelMatrixBufferBindGroup(pipeline) {
+    this.modelMatrixBindGroup = this.device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),
       entries: [
         {
           binding: 0,
-          resource: {buffer: this.modelBuffer}
+          resource: {buffer: this.modelMatrixBuffer}
         }
       ]
     });

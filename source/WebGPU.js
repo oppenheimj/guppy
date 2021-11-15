@@ -1,6 +1,4 @@
 import VertexFormat from './VertexFormat.js';
-import Player from './Player.js'
-import Controls from './Controls.js';
 
 import { mat4 } from 'gl-matrix';
 
@@ -117,6 +115,27 @@ export default class WebGPU {
     this.pipeline = this.device.createRenderPipeline(pipelineDescriptor);
   }
 
+  buildProjViewMatrixBuffer() {
+    const projViewMatrixBufferSize = 4 * 16; // 4x4 matrix
+
+    this.projViewMatrixBuffer = this.device.createBuffer({
+      size: projViewMatrixBufferSize,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+  }
+
+  buildProjViewMatrixBufferBindGroup(pipeline) {
+    this.projViewMatrixBindGroup = this.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        {
+          binding: 0,
+          resource: {buffer: this.projViewMatrixBuffer}
+        }
+      ]
+    });
+  }
+
   buildRenderPassDescriptor() {
     const depthTexture = this.device.createTexture({
       size: this.presentationSize,
@@ -135,7 +154,7 @@ export default class WebGPU {
       depthStencilAttachment: {
         view: depthTexture.createView(),
         depthLoadValue: 1.0,
-        depthStoreOp: 'store', // 'store'
+        depthStoreOp: 'discard', // 'store'
         stencilLoadValue: 0,
         stencilStoreOp: 'store',
       }
@@ -152,25 +171,22 @@ export default class WebGPU {
     const frame = () => {
       this.controls.checkKeyPress();
 
-      mat4.mul(projView, this.projMatrix, this.player.getViewMatrix());
-      this.device.queue.writeBuffer(this.player.modelBuffer, 0, projView.buffer, projView.byteOffset, projView.byteLength);
+      mat4.multiply(projView, this.projMatrix, this.player.getViewMatrix());
+      this.device.queue.writeBuffer(this.projViewMatrixBuffer, 0, projView.buffer, projView.byteOffset, projView.byteLength);
 
       this.renderPassDescriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
-
       const commandEncoder = this.device.createCommandEncoder();
       const passEncoder = commandEncoder.beginRenderPass(this.renderPassDescriptor);
 
       passEncoder.setPipeline(this.pipeline);
-      passEncoder.setBindGroup(0, this.player.modelBindGroup);
-
+      passEncoder.setBindGroup(0, this.projViewMatrixBindGroup);
       this.geometry.forEach(g => {
         passEncoder.setVertexBuffer(0, g.vertexBuffer);
         passEncoder.draw(g.vertexCount, 1, 0, 0);
       })
+
       passEncoder.endPass();
-
       this.device.queue.submit([commandEncoder.finish()]);
-
       requestAnimationFrame(frame);
     }
 
