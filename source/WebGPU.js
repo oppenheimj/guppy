@@ -5,7 +5,9 @@ import { mat4 } from 'gl-matrix';
 export default class WebGPU {
   constructor(canvas) {
     this.canvas = canvas;
-    this.geometry = [];
+    this.drawables = [];
+    this.entities = [];
+    this.name2Pipeline = {};
   }
 
   async init(camera) {
@@ -37,6 +39,7 @@ export default class WebGPU {
 
     this.camera = camera;
     this.projMatrix = this.camera.getProjectionMatrix();
+    this.buildProjViewMatrixBuffer();
 
     this.vertexFormat = new VertexFormat();
   }
@@ -64,7 +67,7 @@ export default class WebGPU {
     }
   }
 
-  async buildPipeline(vertexShaderCode, fragmentShaderCode) {
+  async buildPipeline(name, vertexShaderCode, fragmentShaderCode) {
     // needs vertex shader, fragment shader, vertexFormat, and presentationSize
     // doesn't need to be an instance method
 
@@ -112,7 +115,8 @@ export default class WebGPU {
       },
     }
 
-    this.pipeline = this.device.createRenderPipeline(pipelineDescriptor);
+    this.name2Pipeline[name] = this.device.createRenderPipeline(pipelineDescriptor);
+    this.buildProjViewMatrixBufferBindGroup(this.name2Pipeline[name]);
   }
 
   buildProjViewMatrixBuffer() {
@@ -161,29 +165,46 @@ export default class WebGPU {
     };
   }
 
-  addGeometry(g) {
-    this.geometry.push(g);
+  addDrawable(drawable) {
+    this.drawables.push(drawable);
+  }
+
+  addEntity(entity) {
+    this.entities.push(entity);
+    entity.buildMVPMatrixBufferBindGroup(this.name2Pipeline[entity.pipeline]);
   }
 
   run() {
+    this.buildRenderPassDescriptor();
+
     var projView = mat4.create();
 
     const frame = () => {
       this.controls.checkKeyPress();
 
       mat4.multiply(projView, this.projMatrix, this.player.getViewMatrix());
+
       this.device.queue.writeBuffer(this.projViewMatrixBuffer, 0, projView.buffer, projView.byteOffset, projView.byteLength);
 
       this.renderPassDescriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
       const commandEncoder = this.device.createCommandEncoder();
       const passEncoder = commandEncoder.beginRenderPass(this.renderPassDescriptor);
 
-      passEncoder.setPipeline(this.pipeline);
-      passEncoder.setBindGroup(0, this.projViewMatrixBindGroup);
-      this.geometry.forEach(g => {
-        passEncoder.setVertexBuffer(0, g.vertexBuffer);
-        passEncoder.draw(g.vertexCount, 1, 0, 0);
-      })
+      this.drawables.forEach(drawable => {
+        passEncoder.setPipeline(this.name2Pipeline[drawable.pipeline]);
+        passEncoder.setBindGroup(0, this.projViewMatrixBindGroup);
+        passEncoder.setVertexBuffer(0, drawable.vertexBuffer);
+        passEncoder.draw(drawable.vertexCount, 1, 0, 0);
+      });
+
+      this.entities.forEach(entity => {
+        entity.updateMVPMatrixBuffer(projView);
+
+        passEncoder.setPipeline(this.name2Pipeline[entity.drawable.pipeline]);
+        passEncoder.setBindGroup(0, entity.mvpMatrixBindGroup);
+        passEncoder.setVertexBuffer(0, entity.drawable.vertexBuffer);
+        passEncoder.draw(entity.drawable.vertexCount, 1, 0, 0);
+      });
 
       passEncoder.endPass();
       this.device.queue.submit([commandEncoder.finish()]);

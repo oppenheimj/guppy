@@ -10,6 +10,8 @@ export default class Entity {
     this.right = right || vec3.fromValues(1, 0, 0);
     this.up = up || vec3.fromValues(0, 1, 0);
     this.forward = forward || vec3.fromValues(0, 0, -1);
+
+    this.buildMVPMatrixBuffer();
   }
 
   rotationMatrix() {
@@ -55,31 +57,30 @@ export default class Entity {
     );
   }
 
-  buildModelMatrixBuffer() {
-    const modelMatrixBufferSize = 4 * 16; // 4x4 matrix
+  buildMVPMatrixBuffer() {
+    const mvpMatrixBufferSize = 4 * 16; // 4x4 matrix
 
-    this.modelMatrixBuffer = this.device.createBuffer({
-      size: modelMatrixBufferSize,
+    this.mvpMatrixBuffer = this.device.createBuffer({
+      size: mvpMatrixBufferSize,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
   }
 
-  buildModelMatrixBufferBindGroup(pipeline) {
-    this.modelMatrixBindGroup = this.device.createBindGroup({
+  updateMVPMatrixBuffer(projView) {
+    const mvp = mat4.multiply(mat4.create(), projView, this.getModelMatrix());
+    this.device.queue.writeBuffer(this.mvpMatrixBuffer, 0, mvp.buffer, mvp.byteOffset, mvp.byteLength);
+  }
+
+  buildMVPMatrixBufferBindGroup(pipeline) {
+    this.mvpMatrixBindGroup = this.device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),
       entries: [
         {
           binding: 0,
-          resource: {buffer: this.modelMatrixBuffer}
+          resource: {buffer: this.mvpMatrixBuffer}
         }
       ]
     });
-  }
-
-  updateModelBuffer() {
-    // may need to switch to mapped first
-    new Float32Array(this.modelBuffer.getMappedRange()).set(this.getModelMatrix());
-    this.modelBuffer.unmap();
   }
   
   moveAlongVector(dir) {

@@ -1,11 +1,14 @@
 import VertexFormat from './VertexFormat.js';
 
 export default class Drawable {
-  constructor(device, vertexCount) {
+  constructor(device) {
     this.device = device;
-    this.vertexCount = vertexCount;
-
     this.vertexFormat = new VertexFormat();
+  }
+
+  setVertexData(vertexData) {
+    this.vertexData = vertexData;
+    this.vertexCount = vertexData.length / 12;
   }
 
   buildVertexBuffer() {
@@ -21,3 +24,6 @@ export default class Drawable {
     this.vertexBuffer.unmap();
   }
 }
+
+// The confusing thing about Drawable is that it is subclassed either by something like
+// Terrain, of which there are many instances, or by Cow, of which there is one instance.
