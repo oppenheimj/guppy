@@ -1,10 +1,14 @@
 import { mat3, mat4, vec4, vec3 } from 'gl-matrix';
+import { BYTES_PER_FLOAT, FLOATS_PER_MAT4 } from './consts.js'
+import LocalAxes from './LocalAxes.js';
+import VertexFormatLine from './VertexFormatLine.js';
 
 const toRadians = degrees => degrees * Math.PI / 180.0;
 
 export default class Entity {
   constructor(device, position, right, up, forward) {
     this.device = device;
+    this.pipeline = 'line';
 
     this.position = position || vec3.fromValues(0, 0, 10);
     this.right = right || vec3.fromValues(1, 0, 0);
@@ -12,6 +16,24 @@ export default class Entity {
     this.forward = forward || vec3.fromValues(0, 0, -1);
 
     this.buildMVPMatrixBuffer();
+    this.initializeLocalAxes();
+
+    this.name2MVPBG = {};
+  }
+
+  getModelMatrix() {
+    let f = this.forward;
+    let r = this.right;
+    let u = this.up;
+
+    let p = this.position;
+
+    return mat4.fromValues(
+      r[0],  r[1],   r[2],   0,
+      u[0],  u[1],   u[2],   0,
+      f[0],  f[1],   f[2],   0,
+      p[0],  p[1],   p[2],   1
+    );
   }
 
   rotationMatrix() {
@@ -42,23 +64,8 @@ export default class Entity {
     return mat4.multiply(mat4.create(), this.rotationMatrix(), this.translationMatrix());
   }
 
-  getModelMatrix() {
-    let f = this.forward;
-    let r = this.right;
-    let u = this.up;
-
-    let p = this.position;
-
-    return mat4.fromValues(
-      r[0],  r[1],   r[2],   0,
-      u[0],  u[1],   u[2],   0,
-      f[0],  f[1],   f[2],   0,
-      p[0],  p[1],   p[2],   1
-    );
-  }
-
   buildMVPMatrixBuffer() {
-    const mvpMatrixBufferSize = 4 * 16; // 4x4 matrix
+    const mvpMatrixBufferSize = BYTES_PER_FLOAT * FLOATS_PER_MAT4;
 
     this.mvpMatrixBuffer = this.device.createBuffer({
       size: mvpMatrixBufferSize,
@@ -71,8 +78,8 @@ export default class Entity {
     this.device.queue.writeBuffer(this.mvpMatrixBuffer, 0, mvp.buffer, mvp.byteOffset, mvp.byteLength);
   }
 
-  buildMVPMatrixBufferBindGroup(pipeline) {
-    this.mvpMatrixBindGroup = this.device.createBindGroup({
+  buildMVPMatrixBufferBindGroup(pipeline, name) {
+    this.name2MVPBG[name] = this.device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),
       entries: [
         {
@@ -81,6 +88,35 @@ export default class Entity {
         }
       ]
     });
+  }
+
+  initializeLocalAxes() {
+    this.localAxes = new LocalAxes(this.device, new VertexFormatLine());
+    this.localAxes.setVertexData(this.getLocalAxes(), 6);
+    this.localAxes.buildVertexBuffer();
+  }
+
+  updateLocalAxes() {
+    this.localAxes.updateVertexBuffer(this.getLocalAxes());
+  }
+
+  getLocalAxes() {
+    return new Float32Array([
+      ...[0, 0, 0, 1],
+      ...[1, 0, 0, 1],
+      ...this.forward,
+      ...[1, 0, 0, 1],
+
+      ...[0, 0, 0, 1],
+      ...[0, 1, 0, 1],
+      ...this.up,
+      ...[0, 1, 0, 1],
+
+      ...[0, 0, 0, 1],
+      ...[0, 0, 1, 1],
+      ...this.right,
+      ...[0, 0, 1, 1]
+    ]);
   }
   
   moveAlongVector(dir) {

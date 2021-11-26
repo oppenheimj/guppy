@@ -1,8 +1,8 @@
-const BYTES_PER_FLOAT = 4;
+import { BYTES_PER_FLOAT, FLOATS_PER_TRI_VERTEX } from './consts.js';
 
-export default class VertexFormat {
+export default class VertexFormatTri {
   constructor() {
-    this.vertexSize = 12 * BYTES_PER_FLOAT;
+    this.vertexSize = FLOATS_PER_TRI_VERTEX * BYTES_PER_FLOAT;
 
     this.positionOffset = 0;
     this.colorOffset = 4 * BYTES_PER_FLOAT;
@@ -25,5 +25,10 @@ export default class VertexFormat {
         format: 'float32x4'
       }
     ];
+
+    this.primitive = {
+      topology: 'triangle-list',
+      cullMode: 'front'
+    }
   }
 }

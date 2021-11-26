@@ -5,7 +5,8 @@ import Controls from './source/Controls.js';
 import Drawable from './source/Drawable.js'
 import Entity from './source/Entity.js';
 import Thing from './source/Thing.js';
-import VertexFormat from './source/VertexFormat.js';
+import VertexFormatLine from './source/VertexFormatLine';
+import VertexFormatTri from './source/VertexFormatTri';
 import WebGPU from './source/WebGPU.js';
 
 export {
@@ -14,6 +15,7 @@ export {
   Drawable,
   Entity,
   Thing,
-  VertexFormat,
+  VertexFormatLine,
+  VertexFormatTri,
   WebGPU
 };

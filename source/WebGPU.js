@@ -1,5 +1,3 @@
-import VertexFormat from './VertexFormat.js';
-
 import { mat4 } from 'gl-matrix';
 
 export default class WebGPU {
@@ -8,6 +6,7 @@ export default class WebGPU {
     this.drawables = [];
     this.entities = [];
     this.name2Pipeline = {};
+    this.name2MVPBG = {};
   }
 
   async init(camera) {
@@ -40,8 +39,6 @@ export default class WebGPU {
     this.camera = camera;
     this.projMatrix = this.camera.getProjectionMatrix();
     this.buildProjViewMatrixBuffer();
-
-    this.vertexFormat = new VertexFormat();
   }
 
   async checkShaderError(shader) {
@@ -67,10 +64,7 @@ export default class WebGPU {
     }
   }
 
-  async buildPipeline(name, vertexShaderCode, fragmentShaderCode) {
-    // needs vertex shader, fragment shader, vertexFormat, and presentationSize
-    // doesn't need to be an instance method
-
+  async buildPipeline(name, vertexFormat, vertexShaderCode, fragmentShaderCode) {
     const vertexShader = this.device.createShaderModule({ code: vertexShaderCode });
     await this.checkShaderError(vertexShader);
 
@@ -88,8 +82,8 @@ export default class WebGPU {
         buffers: [
           {
             stepMode: 'vertex', // or instance!!!
-            arrayStride: this.vertexFormat.vertexSize,
-            attributes: this.vertexFormat.vertexBuffers
+            arrayStride: vertexFormat.vertexSize,
+            attributes: vertexFormat.vertexBuffers
           }
         ]
       },
@@ -99,13 +93,7 @@ export default class WebGPU {
         // This format should match the one configured on the canvas
         targets: [{format: this.presentationFormat}]
       },
-      primitive: {
-        // Meaning each set of three vertices are one triangle; no vertices
-        // are shared between triangles. If we were doing indexed, then during
-        // the draw phase we'd do setIndexBuffer(buffer, type) and drawIndexed(length)
-        topology: 'triangle-list', // can also be triangle-strip
-        cullMode: 'front',
-      },
+      primitive: vertexFormat.primitive,
       // Enable depth testing so that the fragment closest to the camera
       // is rendered in front.
       depthStencil: {
@@ -116,7 +104,7 @@ export default class WebGPU {
     }
 
     this.name2Pipeline[name] = this.device.createRenderPipeline(pipelineDescriptor);
-    this.buildProjViewMatrixBufferBindGroup(this.name2Pipeline[name]);
+    this.name2MVPBG[name] = this.buildProjViewMatrixBufferBindGroup(this.name2Pipeline[name]);
   }
 
   buildProjViewMatrixBuffer() {
@@ -129,7 +117,7 @@ export default class WebGPU {
   }
 
   buildProjViewMatrixBufferBindGroup(pipeline) {
-    this.projViewMatrixBindGroup = this.device.createBindGroup({
+    return this.device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),
       entries: [
         {
@@ -171,7 +159,9 @@ export default class WebGPU {
 
   addEntity(entity) {
     this.entities.push(entity);
-    entity.buildMVPMatrixBufferBindGroup(this.name2Pipeline[entity.pipeline]);
+    Object.entries(this.name2Pipeline).forEach(([name, pipeline]) => {
+      entity.buildMVPMatrixBufferBindGroup(pipeline, name);
+    })
   }
 
   run() {
@@ -183,27 +173,39 @@ export default class WebGPU {
       this.controls.checkKeyPress();
 
       mat4.multiply(projView, this.projMatrix, this.player.getViewMatrix());
-
       this.device.queue.writeBuffer(this.projViewMatrixBuffer, 0, projView.buffer, projView.byteOffset, projView.byteLength);
 
       this.renderPassDescriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
       const commandEncoder = this.device.createCommandEncoder();
       const passEncoder = commandEncoder.beginRenderPass(this.renderPassDescriptor);
 
+      // mesh, pipeline, vertexformat, bind groups, e.g. mvp matrix
+
+      // Draw terrain
       this.drawables.forEach(drawable => {
+        // update mvp matrix. This model matrix should be identity
         passEncoder.setPipeline(this.name2Pipeline[drawable.pipeline]);
-        passEncoder.setBindGroup(0, this.projViewMatrixBindGroup);
+        passEncoder.setBindGroup(0, this.name2MVPBG[drawable.pipeline]);
         passEncoder.setVertexBuffer(0, drawable.vertexBuffer);
         passEncoder.draw(drawable.vertexCount, 1, 0, 0);
       });
 
+      // Draw meshes and local axes
       this.entities.forEach(entity => {
         entity.updateMVPMatrixBuffer(projView);
+        entity.updateLocalAxes();
 
-        passEncoder.setPipeline(this.name2Pipeline[entity.drawable.pipeline]);
-        passEncoder.setBindGroup(0, entity.mvpMatrixBindGroup);
-        passEncoder.setVertexBuffer(0, entity.drawable.vertexBuffer);
-        passEncoder.draw(entity.drawable.vertexCount, 1, 0, 0);
+        // draw vertices
+        passEncoder.setPipeline(this.name2Pipeline[entity.skin.pipeline]);
+        passEncoder.setBindGroup(0, entity.name2MVPBG['flat']);
+        passEncoder.setVertexBuffer(0, entity.skin.vertexBuffer);
+        passEncoder.draw(entity.skin.vertexCount, 1, 0, 0);
+
+        // draw local axes
+        passEncoder.setPipeline(this.name2Pipeline[entity.localAxes.pipeline]);
+        passEncoder.setBindGroup(0, entity.name2MVPBG['line']);
+        passEncoder.setVertexBuffer(0, entity.localAxes.vertexBuffer);
+        passEncoder.draw(entity.localAxes.vertexCount, 1, 0, 0);
       });
 
       passEncoder.endPass();

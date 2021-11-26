@@ -1,14 +1,12 @@
-import VertexFormat from './VertexFormat.js';
-
 export default class Drawable {
-  constructor(device) {
+  constructor(device, vertexFormat) {
     this.device = device;
-    this.vertexFormat = new VertexFormat();
+    this.vertexFormat = vertexFormat;
   }
 
-  setVertexData(vertexData) {
+  setVertexData(vertexData, vertexCount) {
     this.vertexData = vertexData;
-    this.vertexCount = vertexData.length / 12;
+    this.vertexCount = vertexCount;
   }
 
   buildVertexBuffer() {
@@ -22,6 +20,10 @@ export default class Drawable {
     // getMappedRange(offset, size) can also be used
     new Float32Array(this.vertexBuffer.getMappedRange()).set(this.vertexData);
     this.vertexBuffer.unmap();
+  }
+
+  updateVertexBuffer(data) {
+    this.device.queue.writeBuffer(this.vertexBuffer, 0, data.buffer, data.byteOffset, data.byteLength);
   }
 }
 
