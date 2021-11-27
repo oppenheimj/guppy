@@ -1,7 +1,11 @@
 export default class Drawable {
-  constructor(device, vertexFormat) {
-    this.device = device;
-    this.vertexFormat = vertexFormat;
+  constructor(webgpu, pipelineName) {
+    this.device = webgpu.device;
+
+    this.pipeline = webgpu.pipelines[pipelineName].pipeline;
+    this.vertexFormat = webgpu.pipelines[pipelineName].vertexFormat;
+
+    this.bindGroup = this.buildMVPMatrixBufferBindGroup(webgpu.projViewMatrixBuffer);
   }
 
   setVertexData(vertexData, vertexCount) {
@@ -25,7 +29,23 @@ export default class Drawable {
   updateVertexBuffer(data) {
     this.device.queue.writeBuffer(this.vertexBuffer, 0, data.buffer, data.byteOffset, data.byteLength);
   }
-}
 
-// The confusing thing about Drawable is that it is subclassed either by something like
-// Terrain, of which there are many instances, or by Cow, of which there is one instance.
+  buildMVPMatrixBufferBindGroup(mvpMatrixBuffer) {
+    return this.device.createBindGroup({
+      layout: this.pipeline.getBindGroupLayout(0),
+      entries: [
+        {
+          binding: 0,
+          resource: {buffer: mvpMatrixBuffer}
+        }
+      ]
+    });
+  }
+
+  draw(passEncoder, bindGroup) {
+    passEncoder.setPipeline(this.pipeline);
+    passEncoder.setBindGroup(0, bindGroup || this.bindGroup);
+    passEncoder.setVertexBuffer(0, this.vertexBuffer);
+    passEncoder.draw(this.vertexCount, 1, 0, 0);
+  }
+}

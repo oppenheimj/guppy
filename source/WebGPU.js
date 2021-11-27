@@ -1,11 +1,17 @@
 import { mat4 } from 'gl-matrix';
 
+import LocalAxes from './LocalAxes.js';
+import VertexFormatLine from './VertexFormatLine.js';
+import lineVert from './shaders/line.vert.wgsl';
+import lineFrag from './shaders/line.frag.wgsl';
+
 export default class WebGPU {
   constructor(canvas) {
     this.canvas = canvas;
     this.drawables = [];
     this.entities = [];
-    this.name2Pipeline = {};
+
+    this.pipelines = {};
     this.name2MVPBG = {};
   }
 
@@ -39,6 +45,11 @@ export default class WebGPU {
     this.camera = camera;
     this.projMatrix = this.camera.getProjectionMatrix();
     this.buildProjViewMatrixBuffer();
+
+    const vfLine = new VertexFormatLine();
+    await this.buildPipeline('line', vfLine, lineVert, lineFrag)
+
+    this.localAxes = new LocalAxes(this, 'line');
   }
 
   async checkShaderError(shader) {
@@ -71,10 +82,6 @@ export default class WebGPU {
     const fragmentShader = this.device.createShaderModule({ code: fragmentShaderCode });
     await this.checkShaderError(fragmentShader);
 
-    // So this pipeline is specific to a particular vertex format and pair of shaders.
-    // Its saying, lets render vertices represented in this particular way
-    // using these particular shaders
-
     const pipelineDescriptor = {
       vertex: {
         module: vertexShader,
@@ -103,8 +110,10 @@ export default class WebGPU {
       },
     }
 
-    this.name2Pipeline[name] = this.device.createRenderPipeline(pipelineDescriptor);
-    this.name2MVPBG[name] = this.buildProjViewMatrixBufferBindGroup(this.name2Pipeline[name]);
+    this.pipelines[name] = {
+      pipeline: this.device.createRenderPipeline(pipelineDescriptor),
+      vertexFormat
+    };
   }
 
   buildProjViewMatrixBuffer() {
@@ -113,18 +122,6 @@ export default class WebGPU {
     this.projViewMatrixBuffer = this.device.createBuffer({
       size: projViewMatrixBufferSize,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-    });
-  }
-
-  buildProjViewMatrixBufferBindGroup(pipeline) {
-    return this.device.createBindGroup({
-      layout: pipeline.getBindGroupLayout(0),
-      entries: [
-        {
-          binding: 0,
-          resource: {buffer: this.projViewMatrixBuffer}
-        }
-      ]
     });
   }
 
@@ -159,9 +156,6 @@ export default class WebGPU {
 
   addEntity(entity) {
     this.entities.push(entity);
-    Object.entries(this.name2Pipeline).forEach(([name, pipeline]) => {
-      entity.buildMVPMatrixBufferBindGroup(pipeline, name);
-    })
   }
 
   run() {
@@ -179,34 +173,8 @@ export default class WebGPU {
       const commandEncoder = this.device.createCommandEncoder();
       const passEncoder = commandEncoder.beginRenderPass(this.renderPassDescriptor);
 
-      // mesh, pipeline, vertexformat, bind groups, e.g. mvp matrix
-
-      // Draw terrain
-      this.drawables.forEach(drawable => {
-        // update mvp matrix. This model matrix should be identity
-        passEncoder.setPipeline(this.name2Pipeline[drawable.pipeline]);
-        passEncoder.setBindGroup(0, this.name2MVPBG[drawable.pipeline]);
-        passEncoder.setVertexBuffer(0, drawable.vertexBuffer);
-        passEncoder.draw(drawable.vertexCount, 1, 0, 0);
-      });
-
-      // Draw meshes and local axes
-      this.entities.forEach(entity => {
-        entity.updateMVPMatrixBuffer(projView);
-        entity.updateLocalAxes();
-
-        // draw vertices
-        passEncoder.setPipeline(this.name2Pipeline[entity.skin.pipeline]);
-        passEncoder.setBindGroup(0, entity.name2MVPBG['flat']);
-        passEncoder.setVertexBuffer(0, entity.skin.vertexBuffer);
-        passEncoder.draw(entity.skin.vertexCount, 1, 0, 0);
-
-        // draw local axes
-        passEncoder.setPipeline(this.name2Pipeline[entity.localAxes.pipeline]);
-        passEncoder.setBindGroup(0, entity.name2MVPBG['line']);
-        passEncoder.setVertexBuffer(0, entity.localAxes.vertexBuffer);
-        passEncoder.draw(entity.localAxes.vertexCount, 1, 0, 0);
-      });
+      this.drawables.forEach(drawable => { drawable.draw(passEncoder) });
+      this.entities.forEach(entity => { entity.draw(passEncoder, projView) });
 
       passEncoder.endPass();
       this.device.queue.submit([commandEncoder.finish()]);

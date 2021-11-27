@@ -1,30 +1,37 @@
 import { mat3, mat4, vec4, vec3 } from 'gl-matrix';
 import { BYTES_PER_FLOAT, FLOATS_PER_MAT4 } from './consts.js'
-import LocalAxes from './LocalAxes.js';
-import VertexFormatLine from './VertexFormatLine.js';
 
 const toRadians = degrees => degrees * Math.PI / 180.0;
 
 export default class Entity {
-  constructor(device, position, right, up, forward) {
-    this.device = device;
-    this.pipeline = 'line';
+  constructor(webgpu, position, right, up, forward) {
+    this.webgpu = webgpu;
+    this.device = webgpu.device;
 
-    this.position = position || vec3.fromValues(0, 0, 10);
-    this.right = right || vec3.fromValues(1, 0, 0);
-    this.up = up || vec3.fromValues(0, 1, 0);
-    this.forward = forward || vec3.fromValues(0, 0, -1);
+    this.position = position  || vec3.fromValues(0, 0, 10);
+    this.right = right        || vec3.fromValues(1, 0, 0);
+    this.up = up              || vec3.fromValues(0, 1, 0);
+    this.forward = forward    || vec3.fromValues(0, 0, -1);
 
     this.buildMVPMatrixBuffer();
-    this.initializeLocalAxes();
 
-    this.name2MVPBG = {};
+    this.localAxes = webgpu.localAxes;
+    this.localAxesBindGroup = this.localAxes.buildMVPMatrixBufferBindGroup(this.mvpMatrixBuffer);
   }
 
   getModelMatrix() {
-    let f = this.forward;
-    let r = this.right;
-    let u = this.up;
+    const customRotation = (d) => {
+      const rotationMatrix = mat4.fromRotation(mat4.create(), d.radians, this[d.axisOfRotation]);
+      mat3.fromMat4(rotationMatrix, rotationMatrix);
+
+      return vec3.transformMat3(vec3.create(), this[d.vectorToRotate], rotationMatrix);
+    };
+
+    const c = this.skin.customInit;
+
+    let f = c && c.f ? customRotation(c.f) : this.forward;
+    let r = c && c.r ? customRotation(c.r) : this.right;
+    let u = c && c.u ? customRotation(c.u) : this.up;
 
     let p = this.position;
 
@@ -78,45 +85,16 @@ export default class Entity {
     this.device.queue.writeBuffer(this.mvpMatrixBuffer, 0, mvp.buffer, mvp.byteOffset, mvp.byteLength);
   }
 
-  buildMVPMatrixBufferBindGroup(pipeline, name) {
-    this.name2MVPBG[name] = this.device.createBindGroup({
-      layout: pipeline.getBindGroupLayout(0),
-      entries: [
-        {
-          binding: 0,
-          resource: {buffer: this.mvpMatrixBuffer}
-        }
-      ]
-    });
+  setSkin(drawable) {
+    this.skin = drawable;
+    this.skinBindGroup = this.skin.buildMVPMatrixBufferBindGroup(this.mvpMatrixBuffer);
   }
 
-  initializeLocalAxes() {
-    this.localAxes = new LocalAxes(this.device, new VertexFormatLine());
-    this.localAxes.setVertexData(this.getLocalAxes(), 6);
-    this.localAxes.buildVertexBuffer();
-  }
+  draw(passEncoder, projView) {
+    this.updateMVPMatrixBuffer(projView);
 
-  updateLocalAxes() {
-    this.localAxes.updateVertexBuffer(this.getLocalAxes());
-  }
-
-  getLocalAxes() {
-    return new Float32Array([
-      ...[0, 0, 0, 1],
-      ...[1, 0, 0, 1],
-      ...this.forward,
-      ...[1, 0, 0, 1],
-
-      ...[0, 0, 0, 1],
-      ...[0, 1, 0, 1],
-      ...this.up,
-      ...[0, 1, 0, 1],
-
-      ...[0, 0, 0, 1],
-      ...[0, 0, 1, 1],
-      ...this.right,
-      ...[0, 0, 1, 1]
-    ]);
+    this.skin.draw(passEncoder, this.skinBindGroup);
+    this.localAxes.draw(passEncoder, this.localAxesBindGroup);
   }
   
   moveAlongVector(dir) {
