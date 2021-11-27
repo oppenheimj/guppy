@@ -93,7 +93,10 @@ export default class Entity {
   draw(passEncoder, projView) {
     this.updateMVPMatrixBuffer(projView);
 
-    this.skin.draw(passEncoder, this.skinBindGroup);
+    if (this.skin) {
+      this.skin.draw(passEncoder, this.skinBindGroup);
+    }
+
     this.localAxes.draw(passEncoder, this.localAxesBindGroup);
   }
   
