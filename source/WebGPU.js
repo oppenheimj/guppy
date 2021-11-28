@@ -119,7 +119,7 @@ export default class WebGPU {
   }
 
   buildProjViewMatrixBuffer() {
-    const projViewMatrixBufferSize = BYTES_PER_FLOAT * FLOATS_PER_MAT4 * 3;
+    const projViewMatrixBufferSize = BYTES_PER_FLOAT * FLOATS_PER_MAT4 * 4;
 
     this.projViewMatrixBuffer = this.device.createBuffer({
       size: projViewMatrixBufferSize,
@@ -181,13 +181,14 @@ export default class WebGPU {
 
       mat4.multiply(projView, this.projMatrix, this.player.getViewMatrix());
       this.device.queue.writeBuffer(this.projViewMatrixBuffer, 0, projView.buffer, projView.byteOffset, projView.byteLength);
+      this.device.queue.writeBuffer(this.projViewMatrixBuffer, 4*16*3, this.player.position.buffer, this.player.position.byteOffset, this.player.position.byteLength);
 
       this.renderPassDescriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
       const commandEncoder = this.device.createCommandEncoder();
       const passEncoder = commandEncoder.beginRenderPass(this.renderPassDescriptor);
 
       this.drawables.forEach(drawable => { drawable.draw(passEncoder) });
-      this.entities.forEach(entity => { entity.draw(passEncoder, projView) });
+      this.entities.forEach(entity => { entity.draw(passEncoder, projView, this.player.position) });
 
       passEncoder.endPass();
       this.device.queue.submit([commandEncoder.finish()]);

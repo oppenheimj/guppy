@@ -72,7 +72,7 @@ export default class Entity {
   }
 
   buildMVPMatrixBuffer() {
-    const mvpMatrixBufferSize = BYTES_PER_FLOAT * FLOATS_PER_MAT4 * 3;
+    const mvpMatrixBufferSize = BYTES_PER_FLOAT * FLOATS_PER_MAT4 * 4;
 
     this.mvpMatrixBuffer = this.device.createBuffer({
       size: mvpMatrixBufferSize,
@@ -80,7 +80,7 @@ export default class Entity {
     });
   }
 
-  updateMVPMatrixBuffer(projView) {
+  updateMVPMatrixBuffer(projView, cameraPos) {
     const modelMatrix = this.getModelMatrix();
     // const normalMatrix = mat3.normalFromMat4(mat3.create(), modelMatrix); // "the transpose of the inverse of the upper-left 3x3 of the model matrix"
     const normalMatrix = mat4.transpose(mat4.create(), mat4.invert(mat4.create(), modelMatrix));
@@ -91,6 +91,8 @@ export default class Entity {
 
     // This is actually a mat3!! Doesn't need as much space!
     this.device.queue.writeBuffer(this.mvpMatrixBuffer, 4*16*2, normalMatrix.buffer, normalMatrix.byteOffset, normalMatrix.byteLength);
+    this.device.queue.writeBuffer(this.mvpMatrixBuffer, 4*16*3, cameraPos.buffer, cameraPos.byteOffset, cameraPos.byteLength);
+
   }
 
   setSkin(drawable) {
@@ -98,8 +100,8 @@ export default class Entity {
     this.skinBindGroup = this.skin.buildMVPMatrixBufferBindGroup(this.mvpMatrixBuffer);
   }
 
-  draw(passEncoder, projView) {
-    this.updateMVPMatrixBuffer(projView);
+  draw(passEncoder, projView, cameraPos) {
+    this.updateMVPMatrixBuffer(projView, cameraPos);
 
     if (this.skin) {
       this.skin.draw(passEncoder, this.skinBindGroup);
