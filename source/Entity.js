@@ -72,27 +72,21 @@ export default class Entity {
   }
 
   buildMVPMatrixBuffer() {
-    const mvpMatrixBufferSize = BYTES_PER_FLOAT * FLOATS_PER_MAT4 * 4;
-
     this.mvpMatrixBuffer = this.device.createBuffer({
-      size: mvpMatrixBufferSize,
+      size: BYTES_PER_FLOAT * FLOATS_PER_MAT4 * 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
   }
 
   updateMVPMatrixBuffer(projView, cameraPos) {
     const modelMatrix = this.getModelMatrix();
-    // const normalMatrix = mat3.normalFromMat4(mat3.create(), modelMatrix); // "the transpose of the inverse of the upper-left 3x3 of the model matrix"
     const normalMatrix = mat4.transpose(mat4.create(), mat4.invert(mat4.create(), modelMatrix));
-    
     const mvp = mat4.multiply(mat4.create(), projView, modelMatrix);
+
     this.device.queue.writeBuffer(this.mvpMatrixBuffer, 0, mvp.buffer, mvp.byteOffset, mvp.byteLength);
     this.device.queue.writeBuffer(this.mvpMatrixBuffer, 4*16, modelMatrix.buffer, modelMatrix.byteOffset, modelMatrix.byteLength);
-
-    // This is actually a mat3!! Doesn't need as much space!
     this.device.queue.writeBuffer(this.mvpMatrixBuffer, 4*16*2, normalMatrix.buffer, normalMatrix.byteOffset, normalMatrix.byteLength);
     this.device.queue.writeBuffer(this.mvpMatrixBuffer, 4*16*3, cameraPos.buffer, cameraPos.byteOffset, cameraPos.byteLength);
-
   }
 
   setSkin(drawable) {
@@ -108,6 +102,10 @@ export default class Entity {
     }
 
     this.localAxes.draw(passEncoder, this.localAxesBindGroup);
+  }
+
+  freeGPUMemory() {
+    this.mvpMatrixBuffer.destroy();
   }
   
   moveAlongVector(dir) {

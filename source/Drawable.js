@@ -48,4 +48,8 @@ export default class Drawable {
     passEncoder.setVertexBuffer(0, this.vertexBuffer);
     passEncoder.draw(this.vertexCount, 1, 0, 0);
   }
+
+  freeGPUMemory() {
+    this.vertexBuffer.destroy();
+  }
 }

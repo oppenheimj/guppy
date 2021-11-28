@@ -10,11 +10,11 @@ import lineFrag from './shaders/line.frag.wgsl';
 export default class WebGPU {
   constructor(canvas) {
     this.canvas = canvas;
-    this.drawables = [];
-    this.entities = [];
 
     this.pipelines = {};
-    this.name2MVPBG = {};
+
+    this.drawables = [];
+    this.id2entity = {};
   }
 
   async init(camera) {
@@ -168,15 +168,22 @@ export default class WebGPU {
   }
 
   addEntity(entity) {
-    this.entities.push(entity);
+    this.id2entity[entity.id] = entity;
   }
 
-  run() {
+  removeEntity(id) {
+    this.id2entity[id].freeGPUMemory();
+    delete this.id2entity[id];
+  }
+
+  run(fn) {
     this.buildRenderPassDescriptor();
 
     var projView = mat4.create();
 
     const frame = () => {
+      fn();
+
       this.controls.checkKeyPress();
 
       mat4.multiply(projView, this.projMatrix, this.player.getViewMatrix());
@@ -188,7 +195,10 @@ export default class WebGPU {
       const passEncoder = commandEncoder.beginRenderPass(this.renderPassDescriptor);
 
       this.drawables.forEach(drawable => { drawable.draw(passEncoder) });
-      this.entities.forEach(entity => { entity.draw(passEncoder, projView, this.player.position) });
+
+      Object.values(this.id2entity).forEach(entity => {
+        entity.draw(passEncoder, projView, this.player.position)
+      });
 
       passEncoder.endPass();
       this.device.queue.submit([commandEncoder.finish()]);
