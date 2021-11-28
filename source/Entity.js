@@ -1,5 +1,5 @@
 import { mat3, mat4, vec4, vec3 } from 'gl-matrix';
-import { BYTES_PER_FLOAT, FLOATS_PER_MAT4 } from './consts.js'
+import { BYTES_PER_FLOAT, FLOATS_PER_MAT4, FLOATS_PER_MAT3 } from './consts.js'
 
 const toRadians = degrees => degrees * Math.PI / 180.0;
 
@@ -72,7 +72,7 @@ export default class Entity {
   }
 
   buildMVPMatrixBuffer() {
-    const mvpMatrixBufferSize = BYTES_PER_FLOAT * FLOATS_PER_MAT4;
+    const mvpMatrixBufferSize = BYTES_PER_FLOAT * FLOATS_PER_MAT4 * 3;
 
     this.mvpMatrixBuffer = this.device.createBuffer({
       size: mvpMatrixBufferSize,
@@ -81,8 +81,16 @@ export default class Entity {
   }
 
   updateMVPMatrixBuffer(projView) {
-    const mvp = mat4.multiply(mat4.create(), projView, this.getModelMatrix());
+    const modelMatrix = this.getModelMatrix();
+    // const normalMatrix = mat3.normalFromMat4(mat3.create(), modelMatrix); // "the transpose of the inverse of the upper-left 3x3 of the model matrix"
+    const normalMatrix = mat4.transpose(mat4.create(), mat4.invert(mat4.create(), modelMatrix));
+    
+    const mvp = mat4.multiply(mat4.create(), projView, modelMatrix);
     this.device.queue.writeBuffer(this.mvpMatrixBuffer, 0, mvp.buffer, mvp.byteOffset, mvp.byteLength);
+    this.device.queue.writeBuffer(this.mvpMatrixBuffer, 4*16, modelMatrix.buffer, modelMatrix.byteOffset, modelMatrix.byteLength);
+
+    // This is actually a mat3!! Doesn't need as much space!
+    this.device.queue.writeBuffer(this.mvpMatrixBuffer, 4*16*2, normalMatrix.buffer, normalMatrix.byteOffset, normalMatrix.byteLength);
   }
 
   setSkin(drawable) {

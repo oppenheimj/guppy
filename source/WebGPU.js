@@ -1,4 +1,6 @@
-import { mat4 } from 'gl-matrix';
+import { mat4, mat3 } from 'gl-matrix';
+
+import { BYTES_PER_FLOAT, FLOATS_PER_MAT4, FLOATS_PER_MAT3 } from './consts.js'
 
 import LocalAxes from './LocalAxes.js';
 import VertexFormatLine from './VertexFormatLine.js';
@@ -117,12 +119,23 @@ export default class WebGPU {
   }
 
   buildProjViewMatrixBuffer() {
-    const projViewMatrixBufferSize = 4 * 16; // 4x4 matrix
+    const projViewMatrixBufferSize = BYTES_PER_FLOAT * FLOATS_PER_MAT4 * 3;
 
     this.projViewMatrixBuffer = this.device.createBuffer({
       size: projViewMatrixBufferSize,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
+
+    const modelMatrix = mat4.fromValues(
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1
+    );
+    // const normalMatrix = mat3.normalFromMat4(mat3.create(), modelMatrix);
+    const normalMatrix = mat4.transpose(mat4.create(), mat4.invert(mat4.create(), modelMatrix));
+    this.device.queue.writeBuffer(this.projViewMatrixBuffer, 4*16, modelMatrix.buffer, modelMatrix.byteOffset, modelMatrix.byteLength);
+    this.device.queue.writeBuffer(this.projViewMatrixBuffer, 4*16*2, normalMatrix.buffer, normalMatrix.byteOffset, normalMatrix.byteLength);
   }
 
   buildRenderPassDescriptor() {
