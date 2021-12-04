@@ -1,5 +1,6 @@
 export default class Drawable {
   constructor(webgpu, pipelineName) {
+    this.webgpu = webgpu;
     this.device = webgpu.device;
 
     this.pipeline = webgpu.pipelines[pipelineName].pipeline;

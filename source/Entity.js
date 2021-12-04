@@ -19,7 +19,7 @@ export default class Entity {
     this.localAxesBindGroup = this.localAxes.buildMVPMatrixBufferBindGroup(this.mvpMatrixBuffer);
   }
 
-  getModelMatrix() {
+  getModelMatrix(invert) {
     const customRotation = (d) => {
       const rotationMatrix = mat4.fromRotation(mat4.create(), d.radians, this[d.axisOfRotation]);
       mat3.fromMat4(rotationMatrix, rotationMatrix);
@@ -27,11 +27,15 @@ export default class Entity {
       return vec3.transformMat3(vec3.create(), this[d.vectorToRotate], rotationMatrix);
     };
 
-    const c = this.skin.customInit;
+    const c = this.skin && this.skin.customInit;
 
     let f = c && c.f ? customRotation(c.f) : this.forward;
     let r = c && c.r ? customRotation(c.r) : this.right;
     let u = c && c.u ? customRotation(c.u) : this.up;
+
+    if (invert) {
+      f = vec3.scale(vec3.create(), f, -1)
+    }
 
     let p = this.position;
 
@@ -78,8 +82,8 @@ export default class Entity {
     });
   }
 
-  updateMVPMatrixBuffer(projView, cameraPos) {
-    const modelMatrix = this.getModelMatrix();
+  updateMVPMatrixBuffer(projView, cameraPos, invert) {
+    const modelMatrix = this.getModelMatrix(invert);
     const normalMatrix = mat4.transpose(mat4.create(), mat4.invert(mat4.create(), modelMatrix));
     const mvp = mat4.multiply(mat4.create(), projView, modelMatrix);
 
@@ -95,7 +99,7 @@ export default class Entity {
   }
 
   draw(passEncoder, projView, cameraPos) {
-    this.updateMVPMatrixBuffer(projView, cameraPos);
+    this.updateMVPMatrixBuffer(projView, cameraPos, false);
 
     if (this.skin) {
       this.skin.draw(passEncoder, this.skinBindGroup);

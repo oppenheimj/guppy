@@ -6,12 +6,16 @@ export default class Camera {
     this.nearClip = nearClip;
     this.farClip = farClip;
     this.aspect = aspect;
+
+    this.tanFovDiv2 = Math.tan(this.toRadians(this.fovY) / 2);
+  }
+
+  toRadians(degrees) {
+    return degrees * Math.PI / 180.0;
   }
 
   getProjectionMatrix() {
-    const toRadians = degrees => degrees * Math.PI / 180.0;
-
-    let S = 1 / Math.tan(toRadians(this.fovY) / 2);
+    let S = 1 / this.tanFovDiv2;
     let A = this.aspect;
 
     let P = this.farClip / (this.farClip - this.nearClip);

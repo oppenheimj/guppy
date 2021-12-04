@@ -7,6 +7,8 @@ import VertexFormatLine from './VertexFormatLine.js';
 import lineVert from './shaders/line.vert.wgsl';
 import lineFrag from './shaders/line.frag.wgsl';
 
+import Background from './Background.js';
+
 export default class WebGPU {
   constructor(canvas) {
     this.canvas = canvas;
@@ -52,6 +54,11 @@ export default class WebGPU {
     await this.buildPipeline('line', vfLine, lineVert, lineFrag)
 
     this.localAxes = new LocalAxes(this, 'line');
+  }
+
+  initBackground(pipelineName) {
+    this.background = new Background(this, pipelineName);
+    this.background.init(this.player.mvpMatrixBuffer);
   }
 
   async checkShaderError(shader) {
@@ -193,6 +200,9 @@ export default class WebGPU {
       this.renderPassDescriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
       const commandEncoder = this.device.createCommandEncoder();
       const passEncoder = commandEncoder.beginRenderPass(this.renderPassDescriptor);
+
+      this.player.updateMVPMatrixBuffer(projView, this.player.position, true);
+      this.background.draw(passEncoder);
 
       this.drawables.forEach(drawable => { drawable.draw(passEncoder) });
 
