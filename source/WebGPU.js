@@ -201,8 +201,10 @@ export default class WebGPU {
       const commandEncoder = this.device.createCommandEncoder();
       const passEncoder = commandEncoder.beginRenderPass(this.renderPassDescriptor);
 
-      this.player.updateMVPMatrixBuffer(projView, this.player.position, true);
-      this.background.draw(passEncoder);
+      if (this.background) {
+        this.player.updateMVPMatrixBuffer(projView, this.player.position, true);
+        this.background.draw(passEncoder);
+      }
 
       this.drawables.forEach(drawable => { drawable.draw(passEncoder) });
 
