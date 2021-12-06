@@ -82,15 +82,17 @@ export default class Entity {
     });
   }
 
-  updateMVPMatrixBuffer(projView, cameraPos, invert) {
+  updateMVPMatrixBuffer(projView, cameraPos, t, invert) {
     const modelMatrix = this.getModelMatrix(invert);
     const normalMatrix = mat4.transpose(mat4.create(), mat4.invert(mat4.create(), modelMatrix));
     const mvp = mat4.multiply(mat4.create(), projView, modelMatrix);
+    const tBuffer = new Float32Array([t]);
 
     this.device.queue.writeBuffer(this.mvpMatrixBuffer, 0, mvp.buffer, mvp.byteOffset, mvp.byteLength);
     this.device.queue.writeBuffer(this.mvpMatrixBuffer, 4*16, modelMatrix.buffer, modelMatrix.byteOffset, modelMatrix.byteLength);
     this.device.queue.writeBuffer(this.mvpMatrixBuffer, 4*16*2, normalMatrix.buffer, normalMatrix.byteOffset, normalMatrix.byteLength);
     this.device.queue.writeBuffer(this.mvpMatrixBuffer, 4*16*3, cameraPos.buffer, cameraPos.byteOffset, cameraPos.byteLength);
+    this.device.queue.writeBuffer(this.mvpMatrixBuffer, 4*16*3+(4*4), tBuffer.buffer, tBuffer.byteOffset, tBuffer.byteLength);
   }
 
   setSkin(drawable) {
@@ -99,7 +101,7 @@ export default class Entity {
   }
 
   draw(passEncoder, projView, cameraPos) {
-    this.updateMVPMatrixBuffer(projView, cameraPos, false);
+    this.updateMVPMatrixBuffer(projView, cameraPos, 0, false);
 
     if (this.skin) {
       this.skin.draw(passEncoder, this.skinBindGroup);

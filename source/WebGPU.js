@@ -202,21 +202,25 @@ export default class WebGPU {
       const passEncoder = commandEncoder.beginRenderPass(this.renderPassDescriptor);
 
       if (this.background) {
-        this.player.updateMVPMatrixBuffer(projView, this.player.position, true);
+        this.player.updateMVPMatrixBuffer(projView, this.player.position, this.t, true);
         this.background.draw(passEncoder);
       }
 
       this.drawables.forEach(drawable => { drawable.draw(passEncoder) });
 
       Object.values(this.id2entity).forEach(entity => {
-        entity.draw(passEncoder, projView, this.player.position)
+        entity.draw(passEncoder, projView, this.player.position);
       });
 
       passEncoder.endPass();
       this.device.queue.submit([commandEncoder.finish()]);
+
+      this.t++;
+
       requestAnimationFrame(frame);
     }
 
+    this.t = 0;
     requestAnimationFrame(frame);
   }
 }
