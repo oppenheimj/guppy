@@ -14,4 +14,6 @@ What follows are development notes.
 
 - [Milestone 2 presentation](https://docs.google.com/presentation/d/1NTBZbFX8FlHE-kU6A0gXdPYUJiJ1spzoiFYMfoKFci8/edit?usp=sharing)
 
-![](/docs/img/cover_photo.png)
+- [Milestone 3 presentation](https://docs.google.com/presentation/d/1IVfxI1FqpZOJTt7WRg9BWaPh-WsYQThii-TUJ-bv3k4/edit?usp=sharing)
+
+![](/docs/img/cover_photo2.png)
