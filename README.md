@@ -17,3 +17,9 @@ What follows are development notes.
 - [Milestone 3 presentation](https://docs.google.com/presentation/d/1IVfxI1FqpZOJTt7WRg9BWaPh-WsYQThii-TUJ-bv3k4/edit?usp=sharing)
 
 ![](/docs/img/cover_photo2.png)
+
+## References:
+- [austinEng's webgpu-samples](https://github.com/austinEng/webgpu-samples)
+- Will Usher's ["From 0 to glTF with WebGPU: The First Triangle"](https://www.willusher.io/graphics/2020/06/15/0-to-gltf-triangle)
+- ndesmic's ["Basic WebGPU Rendering"](https://dev.to/ndesmic/basic-webgpu-rendering-2kob)
+- Warren Moore's ["WebGPU for Metal Developers"](https://metalbyexample.com/webgpu-part-one/)
