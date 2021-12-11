@@ -32,6 +32,8 @@ export default class Entity {
     let f = c && c.f ? customRotation(c.f) : this.forward;
     let r = c && c.r ? customRotation(c.r) : this.right;
     let u = c && c.u ? customRotation(c.u) : this.up;
+    let t = c && c.t ? c.t : vec3.fromValues(0, 0, 0);
+    let s = c && c.s ? c.s : vec3.fromValues(1, 1, 1);
 
     if (invert) {
       f = vec3.scale(vec3.create(), f, -1)
@@ -39,11 +41,19 @@ export default class Entity {
 
     let p = this.position;
 
-    return mat4.fromValues(
-      r[0],  r[1],   r[2],   0,
-      u[0],  u[1],   u[2],   0,
-      f[0],  f[1],   f[2],   0,
-      p[0],  p[1],   p[2],   1
+    return mat4.translate(
+      mat4.create(),
+      mat4.scale(
+        mat4.create(),
+        mat4.fromValues(
+          r[0],  r[1],   r[2],   0,
+          u[0],  u[1],   u[2],   0,
+          f[0],  f[1],   f[2],   0,
+          p[0],  p[1],   p[2],   1
+        ),
+        s
+      ),
+      t
     );
   }
 

@@ -156,14 +156,14 @@ export default class WebGPU {
       colorAttachments: [
         {
           view: undefined, // Assigned later
-          loadValue: { r: 1.0, g: 1.0, b: 1.0, a: 1.0 },
+          loadValue: { r: 0.0, g: 1.0, b: 1.0, a: 1.0 },
           storeOp: 'store',
         },
       ],
       depthStencilAttachment: {
         view: depthTexture.createView(),
         depthLoadValue: 1.0,
-        depthStoreOp: 'discard', // 'store'
+        depthStoreOp: 'store', // 'store'
         stencilLoadValue: 0,
         stencilStoreOp: 'store',
       }
@@ -183,13 +183,15 @@ export default class WebGPU {
     delete this.id2entity[id];
   }
 
-  run(fn) {
+  run(startFn, endFn) {
     this.buildRenderPassDescriptor();
 
     var projView = mat4.create();
 
+    
+
     const frame = () => {
-      fn();
+      startFn();
 
       this.controls.checkKeyPress();
 
@@ -216,6 +218,8 @@ export default class WebGPU {
       this.device.queue.submit([commandEncoder.finish()]);
 
       this.t++;
+
+      endFn();
 
       requestAnimationFrame(frame);
     }
