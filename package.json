@@ -1,6 +1,6 @@
 {
   "name": "guppy-gpu",
-  "version": "1.0.96",
+  "version": "1.0.98",
   "description": "",
   "main": "index.js",
   "scripts": {
